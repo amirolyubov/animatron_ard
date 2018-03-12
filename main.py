@@ -6,8 +6,11 @@ import os
 import pygame
 from tinytag import TinyTag
 import time
-import serial.tools.list_ports
 import pyfirmata
+import threading
+import sqlite3
+
+
 
 
 class Demo1:
@@ -113,7 +116,7 @@ class Demo1:
         sec = self.fin_time % 60
 
     def add(self):
-        file = ttk.askopenfilenames(initialdir='C:/Users/babbu/Downloads')
+        file = ttk.askopenfilenames(initialdir='qbc/Downloads')
         songsTuple = self.frame.splitlist(file)  # turn user's opened filenames into tuple
         songsList = list(songsTuple)  # convert to list
         # Add the full filename of songto playlist list, and a shortened version to the listBox
@@ -143,9 +146,9 @@ class Demo2:
         self.angles = []
         self.pins = []
         self.actions = []
-        self.values =0
-        self.temp_varibal= []
-
+        self.values = 0
+        self.temp_varibal = ['', 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        self.SAVING = False
         ##########angles from window######################
         self.left_eye = 0
         self.right_e = 0
@@ -156,50 +159,46 @@ class Demo2:
         self.right_leg = 0
         self.reserved_1 = 0
         self.reserved_2 = 0
+        #################VALUES FOR TIMER##################################
+        self.timer = False
+        self.default_seconds = 0
+        self.timer_seconds = self.default_seconds
+        self.exist_posistion = []
+        ############################value for fluency#######################################
+        self.fluency =0.02
+
+
 
 
         self.lab_ser_1 = ttk.Label(self.master, text='глаз левый ').grid(row=0, column=1)
         self.left_eye = IntVar()
-        self.angle_box1=ttk.Entry(self.master, textvariable=self.left_eye ,width=3)
+        self.angle_box1 = ttk.Entry(self.master, textvariable=self.left_eye, width=3)
         self.angle_box1.grid(row=1, column=1)
-
-
 
         self.lab_ser_2 = ttk.Label(self.master, text='глаз правый').grid(row=4, column=1)
         self.right_e = IntVar()
-        self.angle_box2 = ttk.Entry(self.master,textvariable=self.right_e,width=3)
+        self.angle_box2 = ttk.Entry(self.master, textvariable=self.right_e, width=3)
         self.angle_box2.grid(row=5, column=1)
-
-
-
 
         self.lab_ser_3 = ttk.Label(self.master, text='плечо правое').grid(row=8, column=1)
         self.right_sholder = IntVar()
-        self.angle_box3 = ttk.Entry(self.master,textvariable=self.right_sholder, width=3)
+        self.angle_box3 = ttk.Entry(self.master, textvariable=self.right_sholder, width=3)
         self.angle_box3.grid(row=9, column=1)
-
-
 
         self.lab_ser_4 = ttk.Label(self.master, text='рука правая').grid(row=0, column=2)
         self.right_hand = IntVar()
-        self.angle_box4 = ttk.Entry(self.master,textvariable=self.right_hand, width=3)
+        self.angle_box4 = ttk.Entry(self.master, textvariable=self.right_hand, width=3)
         self.angle_box4.grid(row=1, column=2)
-
-
-
-
 
         self.lab_ser_5 = ttk.Label(self.master, text='рука левая').grid(row=4, column=2)
         self.left_hand = IntVar()
-        self.angle_box5 = ttk.Entry(self.master,textvariable=self.left_hand, width=3)
+        self.angle_box5 = ttk.Entry(self.master, textvariable=self.left_hand, width=3)
         self.angle_box5.grid(row=5, column=2)
 
-
         self.lab_ser_6 = ttk.Label(self.master, text='нога левая').grid(row=8, column=2)
-        self.left_leg= IntVar()
-        self.angle_box6 = ttk.Entry(self.master,textvariable=self.left_leg, width=3)
+        self.left_leg = IntVar()
+        self.angle_box6 = ttk.Entry(self.master, textvariable=self.left_leg, width=3)
         self.angle_box6.grid(row=9, column=2)
-
 
         self.lab_ser_7 = ttk.Label(self.master, text='нога правая ').grid(row=0, column=3)
         self.right_leg = IntVar()
@@ -212,44 +211,47 @@ class Demo2:
         self.angle_box7.grid(row=5, column=3)
 
         self.lab_ser_9 = ttk.Label(self.master, text='reserved_2 ').grid(row=8, column=3)
-        self.reserved_2= IntVar()
+        self.reserved_2 = IntVar()
         self.angle_box7 = ttk.Entry(self.master, textvariable=self.reserved_2, width=3)
         self.angle_box7.grid(row=9, column=3)
 
-
-
+        self.play_butt = ttk.Button(self.master, text='>', command=self.some_play).grid(row=12, column=2)
 
         self.button = ttk.Button(self.master, text='pull value')
-        self.button.grid(row=13,column=2)
+        self.button.grid(row=13, column=2)
 
         # self.preview = ttk.Button(self.master,text = "preview",command =self.just_one_action2).grid(row = 14 ,column=2)
 
-        self.add_position = ttk.Button(self.master, text="add action",command = self.pin_init).grid(row=16, column=2)
+        self.add_position = ttk.Button(self.master, text="add action", command=self.pin_init).grid(row=17, column=2,sticky='ws')
+        self.write = ttk.Button(self.master, text='write',command = self.write_position) .grid(row=18, column=2,sticky='ws')
 
-        self.time_scale = ttk.Scale(self.master, orient='horizontal', length=450, from_=0.00, to=4.50,
-                                    command=self.take_position)
+        self.time_scale = ttk.Scale(self.master, orient='horizontal', length=450, from_=0, to=180)
         self.time_scale.grid(row=22, column=2)
 
-
-        self.port =StringVar()
+        # port for arduino
+        self.port = StringVar()
         self.port_selector = ttk.Combobox(self.master, textvariable=self.port)
         self.port_selector.grid(row=11, column=3)
-        self.port_b = ttk.Button(self.master,text ='init',command = self.arduino_port_indit).grid(row=13, column=3)
+        self.port_b = ttk.Button(self.master, text='init', command=self.arduino_port_indit).grid(row=13, column=3)
+        # show timer
+        self.label_time = ttk.Label(self.master)
+        self.label_time.grid(row=15, column=2,sticky='NSS')
+
+        self.speed_slider = ttk.Scale(self.master,length =100,orient ='vertical',from_=0.01,to =0.08,).grid(row= 17,column=5)
+
+
 
     # self.but_init = ttk.Button(self.master,text = 'initports',command = self.arduino_port_indit).grid(row= 12,column=2)
 
-
-
-   ################################main func with angles########################
-
+    ################################main func with angles########################
     def arduino_port_indit(self):
         self.ports = list(serial.tools.list_ports.comports())
-
-        self.port_selector = ttk.Combobox(self.master, textvariable=self.ports)
-
+        for p in self.ports:
+            self.port = p
+        self.port_selector = ttk.Combobox(self.master, textvariable=self.port)
 
     '''
-    #mind this stuff after    
+    #mind this stuff after
     def just_one_action(self):
         dict(self.pins)
         self.pin_init()
@@ -263,11 +265,14 @@ class Demo2:
     def close_windows(self):
         self.master.destroy()
 
+
+
+
     def pin_init(self):
         # init pin ardiuno
-        self.time_lapse()
         port = '/dev/ttyACM0'
         port2 = '/dev/ttyUSB0'
+        port3 = '/dev/cu.usbmodem1421'
         board = pyfirmata.Arduino(port2)
         #############important info#########
         '''
@@ -279,7 +284,7 @@ class Demo2:
         self.left_leg = board.get_pin('d:4:s')
         self.right_leg = board.get_pin('d:5:s')
         '''
-
+        self.time_lapse()
         l_e_nine_pin = board.get_pin('d:9:s')
         r_e_eight_pin = board.get_pin('d:8:s')
         sh_r_seven_pin = board.get_pin('d:7:s')
@@ -288,7 +293,7 @@ class Demo2:
         l_l_four_pin = board.get_pin('d:4:s')
         r_l_five_pin = board.get_pin('d:5:s')
 
-        #take each angle on port arduino
+        # take each angle on port arduino
         l_e_nine_pin.write(self.temp_varibal[-1][-9])
         r_e_eight_pin.write(self.temp_varibal[-1][-8])
         sh_r_seven_pin.write(self.temp_varibal[-1][-7])
@@ -297,14 +302,18 @@ class Demo2:
         l_l_four_pin.write(self.temp_varibal[-1][-4])
         r_l_five_pin.write(self.temp_varibal[-1][-3])
 
-
+    def take_position(self):
+        self.temp_varibal.append([0.0, 0, 0, 0, 0, 0, 0, 0, 0])  # first list
+        self.time_lapse()  # take all values from window
+        self.write_position()  # write sql
+        self.speed_slider.set(0)
     '''take each angle'''
 
     def time_lapse(self):  # time scaling
         # temp variable is value for  obtain time scale and save first number is time, after value of angles
-
-        self.temp_varibal.append([self.values])  # add double list for time
-        self.temp_varibal[-1].append(self.left_eye.get())#each angel from each window
+        self.values = self.time_scale.get()
+        self.temp_varibal.append([round(self.values)])  # add double list for time
+        self.temp_varibal[-1].append(self.left_eye.get())  # each angle from each window
         self.temp_varibal[-1].append(self.right_e.get())
         self.temp_varibal[-1].append(self.right_sholder.get())
         self.temp_varibal[-1].append(self.right_hand.get())
@@ -315,16 +324,78 @@ class Demo2:
         self.temp_varibal[-1].append(self.reserved_2.get())
         print(self.temp_varibal[-1])
 
-    def take_position(self, value):
-        self.values = value
+    def write_position(self):
+        self.time_lapse()
+        conn = sqlite3.connect('position.dms')
+        cursor = conn.cursor()
+        cursor.executescript("""
+         insert into `positions` values (%d, %d, %d, %d, %d, %d, %d, %d,%d,%d)
+        """ % (
+        self.temp_varibal[-1][-10], self.temp_varibal[-1][-9],
+        self.temp_varibal[-1][-8], self.temp_varibal[-1][-7],
+        self.temp_varibal[-1][-6], self.temp_varibal[-1][-5],
+        self.temp_varibal[-1][-4], self.temp_varibal[-1][-3],
+        self.temp_varibal[-1][-2], self.temp_varibal[-1][-1]))
+
+    def back_position(self):
+        # take all from data base
+        conn = sqlite3.connect('position.dms')
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM `positions` order by `time` ")
+        self.exist_posistion = cursor.fetchall()
+
+
+    def sorting(self):
+
+        while True:
+            self.back_position()
+            for p in self.exist_posistion:
+                if p[0]== self.timer_seconds:
+                    for i in
+                        time.sleep(self.fluency)
+                        i += 1
+                        l_e_nine_pin.write(i)
+                        r_e_eight_pin.write(i)
+                        sh_r_seven_pin.write(i)
+                        r_h_three_pin.write(i)
+                        l_h_six_pin.write(i)
+                        l_l_four_pin.write(i)
+                        r_l_five_pin.write(i)
+                        res_1_ten_pin.write(i)
+                        res_2_eleven_pin.write(i)
+                        time.sleep(self.fluency)
+
+    def some_play(self):
+        t1 = threading.Thread(target= self.sorting)
+        t2 = threading.Thread(target=self.timer_tick)
+        t2.start()
+        t1.start()
 
 
 
 
+    #######################play_section#############################
 
+    def show_timer(self):
+        #just only show
+        m = self.timer_seconds // 60
+        s = self.timer_seconds - m * 60
+        self.label_time['text'] = '%02d:%02d' % (m, s)
 
+    def timer_tick(self):
 
-
+        self.label_time.after(1000, self.timer_tick)
+        # увеличить таймер
+        self.timer_seconds += 1
+        self.show_timer()
+        print(self.timer_seconds)
+    def timer_start_pause(self):
+        self.timer = False
+        self.timer = not self.timer
+        '''if self.timer:
+            self.timer_tick()
+        '''
+    #####################################################################
 
 
 def main():
