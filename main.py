@@ -164,10 +164,11 @@ class Demo2:
         self.default_seconds = 0
         self.timer_seconds = self.default_seconds
         self.exist_posistion = []
-        ############################value for fluency#######################################
-        self.fluency =0.02
-
-
+        ################## loop  ###########################################
+        self.fluency = 1
+        self.old_time = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        self.sort = True
+        self.write = False
 
 
         self.lab_ser_1 = ttk.Label(self.master, text='глаз левый ').grid(row=0, column=1)
@@ -222,8 +223,8 @@ class Demo2:
 
         # self.preview = ttk.Button(self.master,text = "preview",command =self.just_one_action2).grid(row = 14 ,column=2)
 
-        self.add_position = ttk.Button(self.master, text="add action", command=self.pin_init).grid(row=17, column=2,sticky='ws')
-        self.write = ttk.Button(self.master, text='write',command = self.write_position) .grid(row=18, column=2,sticky='ws')
+        self.add_position = ttk.Button(self.master, text="add action", command=self.pin_init).grid(row=16, column=2)
+        self.write = ttk.Button(self.master, text='write',command = self.write_position) .grid(row=17, column=2)
 
         self.time_scale = ttk.Scale(self.master, orient='horizontal', length=450, from_=0, to=180)
         self.time_scale.grid(row=22, column=2)
@@ -235,9 +236,10 @@ class Demo2:
         self.port_b = ttk.Button(self.master, text='init', command=self.arduino_port_indit).grid(row=13, column=3)
         # show timer
         self.label_time = ttk.Label(self.master)
-        self.label_time.grid(row=15, column=2,sticky='NSS')
+        self.label_time.grid(row=15, column=2)
 
-        self.speed_slider = ttk.Scale(self.master,length =100,orient ='vertical',from_=0.01,to =0.08,).grid(row= 17,column=5)
+        #write section
+
 
 
 
@@ -306,7 +308,7 @@ class Demo2:
         self.temp_varibal.append([0.0, 0, 0, 0, 0, 0, 0, 0, 0])  # first list
         self.time_lapse()  # take all values from window
         self.write_position()  # write sql
-        self.speed_slider.set(0)
+
     '''take each angle'''
 
     def time_lapse(self):  # time scaling
@@ -346,24 +348,90 @@ class Demo2:
 
 
     def sorting(self):
-
-        while True:
+        print('start')
+        old_time = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        while self.sort:
             self.back_position()
             for p in self.exist_posistion:
-                if p[0]== self.timer_seconds:
-                    for i in
-                        time.sleep(self.fluency)
+                #fixed problem
+                if (p[0]-5)== self.timer_seconds:
+
+                    # port = '/dev/ttyACM0'
+                    port2 = '/dev/ttyUSB0'
+                    port3 = '/dev/cu.usbmodem1421'
+                    board = pyfirmata.Arduino(port2)
+                    l_e_nine_pin = board.get_pin('d:9:s')
+                    r_e_eight_pin = board.get_pin('d:8:s')
+                    sh_r_seven_pin = board.get_pin('d:7:s')
+                    r_h_three_pin = board.get_pin('d:3:s')
+                    l_h_six_pin = board.get_pin('d:6:s')
+                    l_l_four_pin = board.get_pin('d:4:s')
+                    r_l_five_pin = board.get_pin('d:5:s')
+                    res_1_ten_pin = board.get_pin('d:10:s')
+                    res_2_eleven_pin = board.get_pin('d:11:s')
+                    i = 0
+
+                    #transit to write position if condition are met
+                    # self.sort = False
+                    # self.write = True
+                    #comprasion and write just one,
+                    # util value not equal value in sql table,
+                    # after search  time and position again
+                    while old_time != p:
+                        self.sort = False
                         i += 1
-                        l_e_nine_pin.write(i)
-                        r_e_eight_pin.write(i)
-                        sh_r_seven_pin.write(i)
-                        r_h_three_pin.write(i)
-                        l_h_six_pin.write(i)
-                        l_l_four_pin.write(i)
-                        r_l_five_pin.write(i)
-                        res_1_ten_pin.write(i)
-                        res_2_eleven_pin.write(i)
-                        time.sleep(self.fluency)
+                        if p[1] != old_time[1]:
+                            l_e_nine_pin.write(i)
+                            old_time[1] =i
+                            print('s1')
+                        if p[2] != old_time[2]:
+                            r_e_eight_pin.write(i)
+                            old_time[2] = i
+                            print('s2')
+                        if p[3] != old_time[3]:
+                            sh_r_seven_pin.write(i)
+                            old_time[3] = i
+                            print('s3')
+                        if p[4] != old_time[4]:
+                            l_h_six_pin.write(i)
+                            old_time[4] = i
+                            print('s4')
+                        if p[5] != old_time[5]:
+                            r_h_three_pin.write(i)
+                            old_time[5] = i
+                            print('s5')
+                        if p[6] != old_time[6]:
+                            l_l_four_pin.write(i)
+                            old_time[6] = i
+                            print('s6')
+                        if p[7] != old_time[7]:
+                            r_l_five_pin.write(i)
+                            old_time[7] = i
+                            print('s7')
+                        if p[8] != old_time[8]:
+                            res_1_ten_pin.write(i)
+                            old_time[8] = i
+                            print('s8')
+                        if p[9] != old_time[9]:
+                            res_2_eleven_pin.write(i)
+                            old_time[9] = i
+                            print('s9')
+                        else:
+                            old_time[1] =p[1]
+                            old_time[2] =p[2]
+                            old_time[3] =p[3]
+                            old_time[4] =p[4]
+                            old_time[5] =p[5]
+                            old_time[6] =p[6]
+                            old_time[7] =p[7]
+                            old_time[8] =p[8]
+                            old_time[9] =p[9]
+
+                            break
+
+
+
+
 
     def some_play(self):
         t1 = threading.Thread(target= self.sorting)
