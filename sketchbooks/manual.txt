@@ -1,0 +1,2 @@
+https://www.linuxcircle.com/2013/05/15/programming-and-uploading-arduino-sketch-without-ide/
+http://www.instructables.com/id/Arduino-Edit-Compile-Upload-Read-Serial-by-LInux-P/

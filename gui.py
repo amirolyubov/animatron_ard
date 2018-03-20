@@ -1,15 +1,17 @@
 from tkinter import *
 import tkinter as tk
-from tkinter import ttk, messagebox
-
+from tkinter import ttk
 import os
+import pyfirmata
 import pygame
 from tinytag import TinyTag
-import time
-import pyfirmata
 import threading
 import sqlite3
-
+from subprocess  import call
+import subprocess
+import sys
+sys.path.insert(0, '/home/qbc/PycharmProjects/ard/sketchbooks/SW')
+from sketchbooks.SW.run_servo import compiling
 
 
 
@@ -157,8 +159,17 @@ class Demo2:
         self.timer = False
         self.default_seconds = 0
         self.timer_seconds = self.default_seconds
-        self.sql_servo_1 = []
         self.sql_time=[]
+        self.sql_servo_1 = 0
+        self.sql_servo_2 = 0
+        self.sql_servo_3 = 0
+        self.sql_servo_4 = 0
+        self.sql_servo_5 = 0
+        self.sql_servo_6 = 0
+        self.sql_servo_7 = 0
+        self.sql_servo_8 = 0
+        self.sql_servo_9 = 0
+
 
 
 
@@ -208,23 +219,27 @@ class Demo2:
         self.angle_box7 = ttk.Entry(self.master, textvariable=self.reserved_2, width=3)
         self.angle_box7.grid(row=9, column=3)
 
-        self.play_butt = ttk.Button(self.master, text='clear', command=self.clear_strings).grid(row=12, column=2)
+        self.play_butt = ttk.Button(self.master, text='проиграть',command=self.some_play).grid(row=12, column=2)
 
-        self.button = ttk.Button(self.master, text='show',command =self.write_to_h)
+        self.button = ttk.Button(self.master, text='записать позиции',command =self.write_position)
         self.button.grid(row=13, column=2)
 
 
 
-        self.write = ttk.Button(self.master, text='sql',command = self.write_position) .grid(row=17, column=2)
-
+        self.write = ttk.Button(self.master, text='удалить все значения',command = self.deleteall) .grid(row=15, column=2,)
+        self.time_label = ttk.Label(self.master, text="время").grid(row=18, column=2, sticky='ws', padx=0)
         self.time_scale = ttk.Scale(self.master, orient='horizontal', length=400, from_=0, to=180)
-        self.time_scale.grid(row=19, column=2,pady=14)
-        self.speed_slider =  ttk.Scale(self.master,orient = "vertical", length =100,from_ = 0 ,to =30).grid(row=17,column =7,sticky = 'ws')
+        self.time_scale.grid(row=19, column=2,pady=10)
 
+        self.speed_label = ttk.Label(self.master,text ="cкорость").grid(row=16,column =2,sticky = 'ws',padx=0)
+        self.speed_slider =  ttk.Scale(self.master,orient = "horizontal", length =100,from_ = 0 ,to =100).grid(row=17,column =2,sticky = 'ws',padx=0)
+        self.speed = IntVar()
 
         self.label_time = ttk.Label(self.master)
         self.label_time.grid(row=15, column=2)
-
+        # self.background_image = tk.PhotoImage(...)
+        # self.background_label = tk.Label(self.master, image=background_image)
+        # self.background_label.place(x=0, y=0, relwidth=1, relheight=1)
 
     def write_position(self):
         #on sql
@@ -232,7 +247,12 @@ class Demo2:
         cursor = conn.cursor()
         cursor.executescript("""
          insert into `time` values (%d)
-        """ % (round(self.time_scale.get())))#time
+        """ % (round(self.time_scale.get()*1000)))#time
+        cursor.executescript("""
+        insert into `speed` values (%d)
+        """ % (self.speed.get()))  # time
+
+
         cursor.executescript("""
         insert into `servo_2` values (%d)
         """ % (self.left_eye.get()))#servo_1
@@ -260,35 +280,134 @@ class Demo2:
         cursor.executescript("""
         insert into `servo_9` values (%d)
         """ % (self.reserved_2.get()))#servo_9
+        self.write_to_h()
+        print(self.speed)
+
+
+
+    def clear_strings(self):
+        # clean by rubish
+        f = open('template.h','r')
+        o = open('VAL.h', 'w')
+        while 1:
+            line = f.readline()
+            if not line: break
+            line = line.replace('(', '')
+            line = line.replace(')', '')
+            line = line.replace(',,', ',')
+            line = line.replace("''", '0')
+            line = line.replace('[][]','[]')
+            line = line.replace('{[]}','{}')
+            line = line.replace('{[','{')
+            line = line.replace(']}','}')
+            line = line.replace(')]};','')
+            o.write(line)
+        o.close()
+        call('rm template.h',shell =True)
+        p = subprocess.Popen(['su'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+        command = "mv VAL.h /usr/share/arduino/hardware/arduino/cores/arduino"
+        os.popen("sudo -i %s" % (command), 'w').write('123456')
+
+
+
 
     def write_to_h(self):
         # take all from data base
         conn = sqlite3.connect('position.dms')
         cursor = conn.cursor()
-        # cursor.execute("SELECT * FROM `time` order by  `time_pos` ")
-        cursor.execute("SELECT * FROM `servo_1` order by  `servo1_pos` ")
+        #time
+        cursor.execute("SELECT * FROM `time` order by  `time_pos` ")
         self.sql_time = cursor.fetchall()
-        # self.sql_servo_1 = cursor.fetchall()
-        with open('Val.h','a+') as file:
-
-            file.writelines('int time_play={')
-            file.writelines(str(self.sql_time))
-            file.writelines('}\n')
-            file.writelines('int key[] = {')
+        # servo_1
+        cursor.execute("SELECT * FROM `servo_1`  ")
+        self.sql_servo_1 =cursor.fetchall()
+        # servo_2
+        cursor.execute("SELECT * FROM `servo_2`  ")
+        self.sql_servo_2 = cursor.fetchall()
+        # servo_3
+        cursor.execute("SELECT * FROM `servo_3` ")
+        self.sql_servo_3 = cursor.fetchall()
+        # servo_4
+        cursor.execute("SELECT * FROM `servo_4`  ")
+        self.sql_servo_4 = cursor.fetchall()
+        # servo_5
+        cursor.execute("SELECT * FROM `servo_5`  ")
+        self.sql_servo_5= cursor.fetchall()
+        # servo_6
+        cursor.execute("SELECT * FROM `servo_6`  ")
+        self.sql_servo_6 = cursor.fetchall()
+        # servo_7
+        cursor.execute("SELECT * FROM `servo_7`  ")
+        self.sql_servo_7 = cursor.fetchall()
+        # servo_8
+        cursor.execute("SELECT * FROM `servo_8`  ")
+        self.sql_servo_8 = cursor.fetchall()
+        # servo_9
+        cursor.execute("SELECT * FROM `servo_9`  ")
+        self.sql_servo_9 = cursor.fetchall()
+        with open('template.h','w') as file:
+            file.writelines('int time_play=1;\n')
+            file.writelines('int speed_row[] = {')
+            file.writelines(str(self.speed))
+            file.writelines('};\n')
+            file.writelines('int LEyeArray[][] = {')
             file.writelines(str(self.sql_servo_1))
-            file.writelines('}\n')
-            file.close()
+            file.writelines('};\n')
+            file.writelines('int REyeArray[] = {')
+            file.writelines(str(self.sql_servo_2))
+            file.writelines('};\n')
+            file.writelines('int LArmArray[] = {')
+            file.writelines(str(self.sql_servo_3))
+            file.writelines('};\n')
+            file.writelines('int RArmArray[] = {')
+            file.writelines(str(self.sql_servo_4))
+            file.writelines('};\n')
+            file.writelines('int LhandArray[] = {')
+            file.writelines(str(self.sql_servo_5))
+            file.writelines('};\n')
+            file.writelines('int RhandArray[] = {')
+            file.writelines(str(self.sql_servo_6))
+            file.writelines('};\n')
+            file.writelines('int LLegArray[] = {')
+            file.writelines(str(self.sql_servo_7))
+            file.writelines('};\n')
+            file.writelines('int RLegArray[] = {')
+            file.writelines(str(self.sql_servo_8))
+            file.writelines('};\n')
+            file.writelines('int AssArray[] = {')
+            file.writelines(str(self.sql_servo_9))
+            file.writelines('};\n')
+            file.writelines('unsigned long KeyArray[] = {')
+            file.writelines(str(self.sql_time))
+            file.writelines('};\n')
+        self.clear_strings()
+
+    def deleteall(self):
+        conn = sqlite3.connect('position.dms')
+        cursor = conn.cursor()
+        cursor.execute('DELETE * FROM `time` ')
+        cursor.execute('DELETE FROM `servo_1` WHERE 1')
+        cursor.execute('DELETE FROM `servo_2` WHERE 1')
+        cursor.execute('DELETE FROM `servo_3` WHERE 1')
+        cursor.execute('DELETE FROM `servo_4` WHERE 1')
+        cursor.execute('DELETE FROM `servo_5` WHERE 1')
+        cursor.execute('DELETE FROM `servo_6` WHERE 1')
+        cursor.execute('DELETE FROM `servo_7` WHERE 1')
+        cursor.execute('DELETE FROM `servo_8` WHERE 1')
+        cursor.execute('DELETE FROM `servo_8` WHERE 1')
 
 
-    def clear_strings(self):
-            with open('Val.h', "r") as f:
-                new_f = f.readlines()
-                with open('Val.h', "r+") as new_new_F:
-                    for line in new_f:
-                        for new_line in new_new_F:
-                            if '),' in line:
-                                print('replacing')
-                                new_line.replace('),','1')
+
+    def some_play(self):
+        t1 = threading.Thread(target=compiling)
+        t1.start()
+
+
+
+
+
+
+
 
     #####################################################################
 
