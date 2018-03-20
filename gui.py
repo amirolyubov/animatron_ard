@@ -169,7 +169,7 @@ class Demo2:
         self.sql_servo_7 = 0
         self.sql_servo_8 = 0
         self.sql_servo_9 = 0
-
+        self.speed =0
 
 
 
@@ -232,14 +232,19 @@ class Demo2:
         self.time_scale.grid(row=19, column=2,pady=10)
 
         self.speed_label = ttk.Label(self.master,text ="cкорость").grid(row=16,column =2,sticky = 'ws',padx=0)
-        self.speed_slider =  ttk.Scale(self.master,orient = "horizontal", length =100,from_ = 0 ,to =100).grid(row=17,column =2,sticky = 'ws',padx=0)
-        self.speed = IntVar()
+        self.speed_slider =  ttk.Scale(self.master,orient = "horizontal", length =100,from_ = 0 ,to =100,command =self.prinw)
+        self.speed_slider.grid(row=17,column =2,sticky = 'ws',padx=0)
 
         self.label_time = ttk.Label(self.master)
         self.label_time.grid(row=15, column=2)
         # self.background_image = tk.PhotoImage(...)
         # self.background_label = tk.Label(self.master, image=background_image)
         # self.background_label.place(x=0, y=0, relwidth=1, relheight=1)
+
+    def prinw(self):
+        print(self.speed_slider.get())
+        print(self.time_scale.get()+'1')
+
 
     def write_position(self):
         #on sql
@@ -250,7 +255,7 @@ class Demo2:
         """ % (round(self.time_scale.get()*1000)))#time
         cursor.executescript("""
         insert into `speed` values (%d)
-        """ % (self.speed.get()))  # time
+        """ % (round(self.speed_slider.get())))  # time
 
 
         cursor.executescript("""
@@ -345,10 +350,13 @@ class Demo2:
         # servo_9
         cursor.execute("SELECT * FROM `servo_9`  ")
         self.sql_servo_9 = cursor.fetchall()
+
+
+
         with open('template.h','w') as file:
             file.writelines('int time_play=1;\n')
             file.writelines('int speed_row[] = {')
-            file.writelines(str(self.speed))
+            file.writelines(str(self.speed_slider.get()))
             file.writelines('};\n')
             file.writelines('int LEyeArray[][] = {')
             file.writelines(str(self.sql_servo_1))
